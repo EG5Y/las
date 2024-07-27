@@ -6,7 +6,8 @@ edition = "2021"
 [dependencies]
 bevy = "0.14.0"
 bevy_flycam = "0.14.1"
-bevy_point_cloud = { path = "../bevy_point_cloud" }
+bevy_panorbit_camera = "0.19.1"
+#bevy_point_cloud = { path = "../bevy_point_cloud" }
 # bytemuck = { version = "1.16.1", features = ["derive"] }
 # glam = "0.28.0"
 las = "0.8.8"

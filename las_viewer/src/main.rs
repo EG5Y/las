@@ -12,14 +12,16 @@ use bevy::{
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
 };
+use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 
 fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins.set(ImagePlugin::default_nearest()),
             WireframePlugin,
-            bevy_flycam::NoCameraPlayerPlugin,
-            bevy_fsc_point_cloud::PointCloudPlugin,
+            //bevy_flycam::NoCameraPlayerPlugin,
+            //bevy_fsc_point_cloud::PointCloudPlugin,
+            PanOrbitCameraPlugin,
         ))
         .add_systems(Startup, setup)
         .add_systems(Update, (toggle_wireframe))
@@ -100,7 +102,7 @@ fn setup(
     //             0.0,
     //             0.0,
     //         ),
-            
+
     //        // .with_rotation(Quat::ro),
     //        // .with_rotation(Quat::from_rotation_x(-PI / 4.)),
     //         ..default()
@@ -117,7 +119,7 @@ fn setup(
     //             1.0,
     //             0.0,
     //         ),
-            
+
     //        // .with_rotation(Quat::ro),
     //        // .with_rotation(Quat::from_rotation_x(-PI / 4.)),
     //         ..default()
@@ -134,116 +136,140 @@ fn setup(
     //     1, 3, 2
     // ];
 
-    let mut i: u32 = 0;
-    let mut pos = Vec::new();
-    let mut uv = Vec::new();
-    let mut norm = Vec::new();
-    let mut index: Vec<u32> = Vec::new();
+    //let mut i: u32 = 0;
 
-    let mut add_quad = |x: f32, y: f32, z: f32| {
-        pos.extend([[x-1.0, y, z], [x-1.0, y, z-1.0], [x, y, z-1.0], [x, y, z]]);
-        uv.extend([[0.0, 1.0], [0.5, 0.0], [1.0, 0.0], [0.5, 1.0]]);
-        norm.extend([[0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0]]);
-        index.extend([
-            i, 3 + i, 
-            1 + i, 
-            1 + i, 
-            3 + i, 
-            2 + i,
-        ]);
-        i += 4;
-    };
+    // let mut uv = Vec::new();
+    // let mut norm = Vec::new();
+    // let mut index: Vec<u32> = Vec::new();
 
+    // let mut add_quad = |x: f32, y: f32, z: f32| {
+    //     pos.extend([
+    //         [x - 1.0, y, z],
+    //         [x - 1.0, y, z - 1.0],
+    //         [x, y, z - 1.0],
+    //         [x, y, z],
+    //     ]);
+    //     //    uv.extend([[0.0, 1.0], [0.5, 0.0], [1.0, 0.0], [0.5, 1.0]]);
+    //     //    norm.extend([[0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0]]);
+    //     //     index.extend([
+    //     //         i, 3 + i,
+    //     //         1 + i,
+    //     //         1 + i,
+    //     //         3 + i,
+    //     //         2 + i,
+    //     //     ]);
+    //     //     i += 4;
+    // };
 
-    // let mut reader = las::Reader::from_path("/home/hey/Downloads/2743_1234.las").unwrap();
-    // //let point = las::Read::read(&mut reader).unwrap().unwrap();
-    // for wrapped_point in las::Read::points(&mut reader) {
-    //     let point = wrapped_point.unwrap();
+    let mut reader = las::Reader::from_path("/home/hey/Downloads/2743_1234.las").unwrap();
+    //let point = las::Read::read(&mut reader).unwrap().unwrap();
+    let header = las::Read::header(&reader);
+    println!("{header:#?}");
+    let bounds = header.bounds();
+    let mut pos = Vec::with_capacity((header.number_of_points() / 3) as usize);
+    let mut p_i: usize = 0;
+    for wrapped_point in las::Read::points(&mut reader) {
+        let point = wrapped_point.unwrap();
 
-    //     add_quad(point.x as f32, point.y as f32, point.z as f32);
+        pos.extend([[
+            ((point.x - bounds.min.x) - ((bounds.max.x - bounds.min.x) / 2.0)) as f32,
+            //(point.y - bounds.min.y) as f32,
+            ((point.y - bounds.min.y) - ((bounds.max.y - bounds.min.y) / 2.0)) as f32,
+            //((point.z - bounds.min.z) + ((bounds.max.z - bounds.min.z) / 2.0)) as f32,
+            ( point.z - bounds.min.z ) as f32,
+        ]]);
+        //pos.extend([[(point.x - bounds.min.x + (bounds.min.x - bounds.min.x)) as f32, (point.y - bounds.min.y) as f32, (point.z  - bounds.min.z) as f32]]);
+        //pos.extend([[point.x as f32, point.y as f32, point.z as f32]]);
+        //add_quad(point.x as f32, point.y as f32, point.z as f32);
 
-    //     // commands.spawn((
-    //     //     PbrBundle {
-    //     //         mesh: cube1.clone(),
-    //     //         material: debug_material.clone(),
-    //     //         transform: Transform::from_xyz(
-    //     //             point.x as f32,
-    //     //             point.y as f32,
-    //     //             point.z as f32,
-    //     //         ),
-                
-    //     //        // .with_rotation(Quat::ro),
-    //     //        // .with_rotation(Quat::from_rotation_x(-PI / 4.)),
-    //     //         ..default()
-    //     //     },
-    //     //     Shape,
-    //     // ));
+        if p_i % 100000 == 0 {
+            println!("points added: {}", p_i);
+        }
 
-    //     //println!("Point coordinates: ({}, {}, {})", point.x, point.y, point.z);
-    //     // if let Some(color) = point.color {
-    //     //     println!("Point color: red={}, green={}, blue={}",
-    //     //         color.red,
-    //     //         color.green,
-    //     //         color.blue,
-    //     //     );
-    //     // }
+        p_i += 1;
+
+        // commands.spawn((
+        //     PbrBundle {
+        //         mesh: cube1.clone(),
+        //         material: debug_material.clone(),
+        //         transform: Transform::from_xyz(
+        //             point.x as f32,
+        //             point.y as f32,
+        //             point.z as f32,
+        //         ),
+
+        //        // .with_rotation(Quat::ro),
+        //        // .with_rotation(Quat::from_rotation_x(-PI / 4.)),
+        //         ..default()
+        //     },
+        //     Shape,
+        // ));
+
+        //println!("Point coordinates: ({}, {}, {})", point.x, point.y, point.z);
+        // if let Some(color) = point.color {
+        //     println!("Point color: red={}, green={}, blue={}",
+        //         color.red,
+        //         color.green,
+        //         color.blue,
+        //     );
+        // }
+    }
+
+    // for [x, y, z] in pos.iter_mut() {
+
     // }
 
+    println!("points added: {}", p_i);
 
-    
-    add_quad(1.0, 2.0, 0.0);
+    //add_quad(1.0, 2.0, 0.0);
 
-
-    let mesh = Mesh::new(bevy::render::mesh::PrimitiveTopology::TriangleList, RenderAssetUsages::default())
+    let mesh = Mesh::new(
+        bevy::render::mesh::PrimitiveTopology::PointList,
+        RenderAssetUsages::default(),
+    )
     // Add 4 vertices, each with its own position attribute (coordinate in
     // 3D space), for each of the corners of the parallelogram.
-    .with_inserted_attribute(
-        Mesh::ATTRIBUTE_POSITION,
-        pos
-    )
+    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, pos);
     // Assign a UV coordinate to each vertex.
-    .with_inserted_attribute(
-        Mesh::ATTRIBUTE_UV_0,
-        uv
-    )
-    // Assign normals (everything points outwards)
-    .with_inserted_attribute(
-        Mesh::ATTRIBUTE_NORMAL,
-        norm,
-    )
-    // After defining all the vertices and their attributes, build each triangle using the
-    // indices of the vertices that make it up in a counter-clockwise order.
-    .with_inserted_indices(bevy::render::mesh::Indices::U32(index));
+
+    // .with_inserted_attribute(
+    //     Mesh::ATTRIBUTE_UV_0,
+    //     uv
+    // )
+    // // Assign normals (everything points outwards)
+    // .with_inserted_attribute(
+    //     Mesh::ATTRIBUTE_NORMAL,
+    //     norm,
+    // )
+
+    // // After defining all the vertices and their attributes, build each triangle using the
+    // // indices of the vertices that make it up in a counter-clockwise order.
+    // .with_inserted_indices(bevy::render::mesh::Indices::U32(index));
 
     let mesh = meshes.add(mesh);
 
     commands.spawn((
         PbrBundle {
             mesh: mesh,
-            material: debug_material.clone(),
-            transform: Transform::from_xyz(
-                0.0,
-                1.0,
-                0.0,
-            ),
-            
-           // .with_rotation(Quat::ro),
-           // .with_rotation(Quat::from_rotation_x(-PI / 4.)),
+            //material: debug_material.clone(),
+            //transform: Transform::from_xyz(0.0 + bounds.min.x as f32, 0.0 + bounds.min.y as f32, 0.0 + bounds.min.z as f32)
+            //transform: Transform::from_xyz(-(  bounds.max.x - bounds.min.x ) as f32, 0.0, 0.0)
+            transform: Transform::from_xyz(0.0, 0.0, 0.0)
+                // .with_rotation(Quat::ro),
+                .with_rotation(Quat::from_rotation_x(45.0)),
             ..default()
         },
         Shape,
     ));
 
+    // let mesh: Handle<PointCloudAsset> = asset_server.load("/home/hey/Downloads/2743_1234.las");
 
-    let mesh: Handle<PointCloudAsset> = asset_server.load("/home/hey/Downloads/2743_1234.las");
-
-    commands
-        .spawn(PotreePointCloud {
-            mesh,
-            point_size: 0.007,
-        })
-        .insert(SpatialBundle::default());
-
+    // commands
+    //     .spawn(PotreePointCloud {
+    //         mesh,
+    //         point_size: 0.007,
+    //     })
+    //     .insert(SpatialBundle::default());
 
     // let mut reader = las::Reader::from_path("/home/hey/Downloads/2743_1234.las").unwrap();
     // let point = las::Read::read(&mut reader).unwrap().unwrap();
@@ -259,7 +285,7 @@ fn setup(
     //                 point.y as f32,
     //                 point.z as f32,
     //             ),
-                
+
     //            // .with_rotation(Quat::ro),
     //            // .with_rotation(Quat::from_rotation_x(-PI / 4.)),
     //             ..default()
@@ -288,7 +314,7 @@ fn setup(
     //                 2.0,
     //                 -Z_EXTENT / 2.,
     //             ),
-                
+
     //            // .with_rotation(Quat::ro),
     //            // .with_rotation(Quat::from_rotation_x(-PI / 4.)),
     //             ..default()
@@ -318,11 +344,24 @@ fn setup(
 
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 7., 14.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
+            transform: Transform::from_xyz(0.0, 7., 14.0)
+                .looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
             ..default()
         },
-        bevy_flycam::FlyCam,
+        //bevy_flycam::FlyCam,
+        PanOrbitCamera::default(),
     ));
+
+    let text_style = TextStyle {
+        font_size: 60.0,
+        color: Color::WHITE,
+        ..Default::default()
+    };
+    //let text_alignment = TextAlignment::Center;
+
+    commands.spawn(TextBundle::from_sections([
+        TextSection::new("hello", text_style)
+    ]));
 
     // commands.spawn(
     //     TextBundle::from_section("Press space to toggle wireframes", TextStyle::default())
