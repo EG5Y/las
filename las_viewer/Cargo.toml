@@ -1,0 +1,16 @@
+[package]
+name = "las_viewer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = "0.14.0"
+bevy_flycam = "0.14.1"
+bevy_point_cloud = { path = "../bevy_point_cloud" }
+# bytemuck = { version = "1.16.1", features = ["derive"] }
+# glam = "0.28.0"
+las = "0.8.8"
+# pollster = "0.3.0"
+# wgpu = "22.0.0"
+# wgpu-types = "22.0.0"
+# winit = "0.30.4"
