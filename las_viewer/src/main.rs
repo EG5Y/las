@@ -97,27 +97,12 @@ fn octree_gen_points(x: f32, y: f32, z: f32, size: f32) -> [[f32; 3]; 8] {
 
 fn octree_divide(octree_cube: &[[f32; 3]; 8]) -> [[[f32; 3]; 8]; 8] {
     let [start_x, start_y, start_z] = octree_cube[0];
-    let [width_x, width_y, width_z] = octree_cube[3];
-    let [height_x, height_y, height_z] = octree_cube[1];
-    let [len_x, len_y, len_z] = octree_cube[4];
+    let width_x = octree_cube[3][0];
 
     let size = (width_x - start_x) / 2.0;
     let middle_x = start_x + size;
     let middle_y = start_y + size;
     let middle_z = start_z + size;
-
-    // let middle_x = start_x + (width_x - start_x) / 2.0;
-    // let middle_y = start_y + (height_y - start_y) / 2.0;
-    // let middle_z = start_z + (len_z - start_z) / 2.0;
-
-    // let [width_half_x, width_half_y, width_half_z] = [
-    //     start_x + (width_x - start_x) / 2.0,
-    //     start_y + (width_y),
-    //     width_z / 2.0,
-    // ];
-    // let [height_half_x, height_half_y, height_half_z] =
-    //     [height_x / 2.0, height_y / 2.0, height_z / 2.0];
-    // let [len_half_x, len_half_y, len_half_z] = [len_x / 2.0, len_y / 2.0, len_z / 2.0];
 
     [
         octree_gen_points(start_x, start_y, start_z, size),
@@ -215,11 +200,13 @@ fn setup(
     //max!
 
     let tree = Octree::new(size);
-    println!("{:#?}", tree);
+    println!("TREE {:#?}", tree);
     let lines = gen_debug_lines(&tree);
-
+    let sphere = gen_sphere(-200.0, 350.0, 100.0, 20.0);
+    println!("SPHERE {:#?}", sphere);
     let mesh = meshes.add(mesh);
     let lines = meshes.add(lines);
+    let sphere = meshes.add(sphere);
 
     commands.spawn((
         PbrBundle {
@@ -234,6 +221,18 @@ fn setup(
     commands.spawn((
         MaterialMeshBundle {
             mesh: lines,
+            material: debug_material.clone(),
+            //material: debug_material,
+            transform: Transform::from_xyz(0.0, 0.0, 0.0),
+            // .with_rotation(Quat::from_rotation_x(45.0)),
+            ..default()
+        },
+        Shape,
+    ));
+
+    commands.spawn((
+        MaterialMeshBundle {
+            mesh: sphere,
             material: debug_material,
             //material: debug_material,
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
@@ -243,17 +242,18 @@ fn setup(
         Shape,
     ));
 
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            shadows_enabled: true,
-            intensity: 10_000_000.,
-            range: 100.0,
-            shadow_depth_bias: 0.2,
-            ..default()
-        },
-        transform: Transform::from_xyz(8.0, 16.0, 8.0),
-        ..default()
-    });
+
+    // commands.spawn(PointLightBundle {
+    //     point_light: PointLight {
+    //         shadows_enabled: true,
+    //         intensity: 10_000_000.,
+    //         range: 100.0,
+    //         shadow_depth_bias: 0.2,
+    //         ..default()
+    //     },
+    //     transform: Transform::from_xyz(8.0, 16.0, 8.0),
+    //     ..default()
+    // });
 
     commands.spawn((
         Camera3dBundle {
@@ -447,6 +447,90 @@ fn gen_debug_lines(tree: &Octree) -> Mesh {
     )
     //.with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]])
     //.with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 1.0], [0.5, 0.0], [1.0, 0.0], [0.5, 1.0]])
+    .with_inserted_indices(bevy::render::mesh::Indices::U32(indices))
+    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, pos);
+
+    lines
+}
+
+fn gen_sphere(x: f32, y: f32, z: f32, radius: f32) -> Mesh {
+    // let mut pos: Vec<[f32; 3]> = vec![[-100.0, 0.0, 0.0], [-100.0, 0.0, 100.0]];
+    // let mut indices: Vec<u32> = vec![0, 1];
+    let mut pos: Vec<[f32; 3]> = Vec::new();
+    let mut indices: Vec<u32> = Vec::new();
+    //let x = &mut pos[1][0];
+    //let y = &mut pos[1][1];
+
+    
+    //let [origin_x, origin_y, origin_z] = [-100.0, 0.0, 0.0];
+
+    //pos.extend([[origin_x, origin_y, origin_z]]);
+
+    let d_step = 360.0 / 5.0;
+    let diameter = radius * 2.0;
+    let edge_count: u32 = 5;
+    let edge_count_sqr = (edge_count as f32).sqrt();
+    //let height = r * (1.0 - 1.0/(edge_count as f32).sqrt());
+    // let hat_height = (r / 3.0) + /2.0 * (1.0 - 1.0/edge_count_sqr);
+    // let bridge_height = r/2.0 + edge_count_sqr;
+    let hat_height = diameter / 3.0;
+    let bridge_height = (diameter / 3.0) * 2.0;
+
+    let mut edge_i: u32 = 0;
+
+    let mut add_half = |height_mul: f32, deg: f32, origin: [f32; 3]| {
+        let [origin_x, origin_y, origin_z] = origin;
+        let new_edge_count = edge_i + edge_count;
+
+        for i in edge_i + 1..=new_edge_count {
+            let d = (PI * (2.0 / 360.0)) * (d_step * i as f32 + deg);
+            let d_cos = d.cos();
+            let d_sin = d.sin();
+    
+            let mut x = radius;
+            let mut z = radius;
+            
+            // x = origin_x + (x - origin_x) * r_cos - (z - origin_z) * r_sin;
+            // z = origin_z + (z - origin_x) * r_sin + (z - origin_z) * r_cos;
+    
+            x = origin_x + x * d_cos - x * d_sin;
+            z = origin_z + z * d_sin + z * d_cos;
+    
+            pos.extend([[x, origin_y, z]]);
+        }
+    
+        for i in edge_i..new_edge_count - 1 {
+            indices.extend([i, i + 1])
+        }
+    
+        indices.extend([edge_i, new_edge_count - 1]);
+    
+        
+        pos.extend([[origin_x, origin_y + (hat_height * height_mul), origin_z]]);
+    
+        for i in edge_i..=new_edge_count - 1 {
+            indices.extend([i, new_edge_count])
+        }
+
+        edge_i += edge_count + 1;
+    };
+
+    add_half(1.0, 0.0, [x, y, z]);
+    add_half(-1.0, 36.0, [x, y - (bridge_height ), z]);
+
+    for i in 0..edge_count {
+        // let first_half = pos[i as usize];
+        // let second_half = pos[(i + edge_count) as usize + 1];
+        indices.extend([i, i + edge_count, i, i + edge_count - 1]);
+    }
+
+    indices.extend([0, edge_count * 2, 0,  edge_count * 2 - 1, 1, edge_count * 2]);
+    
+
+    let lines = Mesh::new(
+        bevy::render::mesh::PrimitiveTopology::LineList,
+        RenderAssetUsages::default(),
+    )
     .with_inserted_indices(bevy::render::mesh::Indices::U32(indices))
     .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, pos);
 
