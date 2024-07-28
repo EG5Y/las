@@ -1,30 +1,33 @@
-//! This example demonstrates the built-in 3d shapes in Bevy.
-//! The scene includes a patterned texture and a rotation for visualizing the normals and UVs.
-
 use std::f32::consts::PI;
 
 use bevy::{
     color::palettes::basic::SILVER,
-    pbr::wireframe::{WireframeConfig, WireframePlugin},
+    pbr::{wireframe::{WireframeConfig, WireframePlugin}, MaterialPipeline, MaterialPipelineKey},
     prelude::*,
     render::{
-        render_asset::RenderAssetUsages,
-        render_resource::{Extent3d, TextureDimension, TextureFormat},
+        mesh::MeshVertexBufferLayoutRef, render_asset::RenderAssetUsages, render_resource::{AsBindGroup, Extent3d, PolygonMode, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError, TextureDimension, TextureFormat}
     },
 };
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
+
+const CACHE_PATH: &str = "./cached_points";
+
+#[derive(Asset, TypePath, Default, AsBindGroup, Debug, Clone)]
+struct LineMaterial {
+    #[uniform(0)]
+    color: LinearRgba,
+}
 
 fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins.set(ImagePlugin::default_nearest()),
             WireframePlugin,
-            //bevy_flycam::NoCameraPlayerPlugin,
-            //bevy_fsc_point_cloud::PointCloudPlugin,
             PanOrbitCameraPlugin,
+            MaterialPlugin::<LineMaterial>::default(),
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, (toggle_wireframe))
+        //.add_systems(Update, ())
         .run();
 }
 
@@ -32,296 +35,64 @@ fn main() {
 #[derive(Component)]
 struct Shape;
 
-const SHAPES_X_EXTENT: f32 = 14.0;
-const EXTRUSION_X_EXTENT: f32 = 16.0;
-const Z_EXTENT: f32 = 5.0;
-
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut line_materials: ResMut<Assets<LineMaterial>>,
 ) {
-    let debug_material = materials.add(StandardMaterial {
-        base_color_texture: Some(images.add(uv_debug_texture())),
-        ..default()
-    });
+    //bevy::pbr::wireframe::WireframeMaterial::default();
+    //let debug_material = materials.add(StandardMaterial::from_color(Color::linear_rgba(0., 1., 0., 1.0)));
+    let debug_material = line_materials.add(LineMaterial { color: LinearRgba::GREEN });
 
-    // let shapes = [
-    //     meshes.add(Cuboid::default()),
-    //     meshes.add(Tetrahedron::default()),
-    //     meshes.add(Capsule3d::default()),
-    //     meshes.add(Torus::default()),
-    //     meshes.add(Cylinder::default()),
-    //     meshes.add(Cone::default()),
-    //     meshes.add(ConicalFrustum::default()),
-    //     meshes.add(Sphere::default().mesh().ico(5).unwrap()),
-    //     meshes.add(Sphere::default().mesh().uv(32, 18)),
-    // ];
-
-    // let extrusions = [
-    //     meshes.add(Extrusion::new(Rectangle::default(), 1.)),
-    //     meshes.add(Extrusion::new(Capsule2d::default(), 1.)),
-    //     meshes.add(Extrusion::new(Annulus::default(), 1.)),
-    //     meshes.add(Extrusion::new(Circle::default(), 1.)),
-    //     meshes.add(Extrusion::new(Ellipse::default(), 1.)),
-    //     meshes.add(Extrusion::new(RegularPolygon::default(), 1.)),
-    //     meshes.add(Extrusion::new(Triangle2d::default(), 1.)),
-    // ];
-
-    // let num_shapes = shapes.len();
-
-    // for (i, shape) in shapes.into_iter().enumerate() {
-    //     commands.spawn((
-    //         PbrBundle {
-    //             mesh: shape,
-    //             material: debug_material.clone(),
-    //             transform: Transform::from_xyz(
-    //                 -SHAPES_X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * SHAPES_X_EXTENT,
-    //                 2.0,
-    //                 Z_EXTENT / 2.,
-    //             ),
-    //             //.with_rotation(Quat::from_rotation_x(-PI / 4.)),
-    //             ..default()
-    //         },
-    //         Shape,
-    //     ));
-    // }
-
-    //let num_extrusions = extrusions.len();
-
-    // let cube = Extrusion::new(Rectangle::default(), 1.);
-    // let cube1 = meshes.add(Cuboid::default());
-
-    // commands.spawn((
-    //     PbrBundle {
-    //         mesh: cube1.clone(),
-    //         material: debug_material.clone(),
-    //         transform: Transform::from_xyz(
-    //             0.0,
-    //             0.0,
-    //             0.0,
-    //         ),
-
-    //        // .with_rotation(Quat::ro),
-    //        // .with_rotation(Quat::from_rotation_x(-PI / 4.)),
-    //         ..default()
-    //     },
-    //     Shape,
-    // ));
-
-    // commands.spawn((
-    //     PbrBundle {
-    //         mesh: cube1.clone(),
-    //         material: debug_material.clone(),
-    //         transform: Transform::from_xyz(
-    //             0.0,
-    //             1.0,
-    //             0.0,
-    //         ),
-
-    //        // .with_rotation(Quat::ro),
-    //        // .with_rotation(Quat::from_rotation_x(-PI / 4.)),
-    //         ..default()
-    //     },
-    //     Shape,
-    // ));
-
-    // let mut pos = vec![[-1.0, 0.0, 0.0], [-1.0, 0.0, -1.0], [0.0, 0.0, -1.0], [0.0, 0.0, 0.0]];
-    // let mut norm = vec![[0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0]];
-    // let mut index = vec![
-    //     // First triangle
-    //     0, 3, 1,
-    //     // Second triangle
-    //     1, 3, 2
-    // ];
-
-    //let mut i: u32 = 0;
-
-    // let mut uv = Vec::new();
-    // let mut norm = Vec::new();
-    // let mut index: Vec<u32> = Vec::new();
-
-    // let mut add_quad = |x: f32, y: f32, z: f32| {
-    //     pos.extend([
-    //         [x - 1.0, y, z],
-    //         [x - 1.0, y, z - 1.0],
-    //         [x, y, z - 1.0],
-    //         [x, y, z],
-    //     ]);
-    //     //    uv.extend([[0.0, 1.0], [0.5, 0.0], [1.0, 0.0], [0.5, 1.0]]);
-    //     //    norm.extend([[0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0]]);
-    //     //     index.extend([
-    //     //         i, 3 + i,
-    //     //         1 + i,
-    //     //         1 + i,
-    //     //         3 + i,
-    //     //         2 + i,
-    //     //     ]);
-    //     //     i += 4;
-    // };
-
-    let mut reader = las::Reader::from_path("/home/hey/Downloads/2743_1234.las").unwrap();
-    //let point = las::Read::read(&mut reader).unwrap().unwrap();
-    let header = las::Read::header(&reader);
-    println!("{header:#?}");
+    let (points, header) = read_las("/home/hey/Downloads/2743_1234.las");
     let bounds = header.bounds();
-    let mut pos = Vec::with_capacity((header.number_of_points() / 3) as usize);
-    let mut p_i: usize = 0;
-    for wrapped_point in las::Read::points(&mut reader) {
-        let point = wrapped_point.unwrap();
 
-        pos.extend([[
-            ((point.x - bounds.min.x) - ((bounds.max.x - bounds.min.x) / 2.0)) as f32,
-            //(point.y - bounds.min.y) as f32,
-            ((point.y - bounds.min.y) - ((bounds.max.y - bounds.min.y) / 2.0)) as f32,
-            //((point.z - bounds.min.z) + ((bounds.max.z - bounds.min.z) / 2.0)) as f32,
-            ( point.z - bounds.min.z ) as f32,
-        ]]);
-        //pos.extend([[(point.x - bounds.min.x + (bounds.min.x - bounds.min.x)) as f32, (point.y - bounds.min.y) as f32, (point.z  - bounds.min.z) as f32]]);
-        //pos.extend([[point.x as f32, point.y as f32, point.z as f32]]);
-        //add_quad(point.x as f32, point.y as f32, point.z as f32);
+    let mut modified_points = octotree(&points, &bounds);
+    drop(points);
 
-        if p_i % 100000 == 0 {
-            println!("points added: {}", p_i);
-        }
-
-        p_i += 1;
-
-        // commands.spawn((
-        //     PbrBundle {
-        //         mesh: cube1.clone(),
-        //         material: debug_material.clone(),
-        //         transform: Transform::from_xyz(
-        //             point.x as f32,
-        //             point.y as f32,
-        //             point.z as f32,
-        //         ),
-
-        //        // .with_rotation(Quat::ro),
-        //        // .with_rotation(Quat::from_rotation_x(-PI / 4.)),
-        //         ..default()
-        //     },
-        //     Shape,
-        // ));
-
-        //println!("Point coordinates: ({}, {}, {})", point.x, point.y, point.z);
-        // if let Some(color) = point.color {
-        //     println!("Point color: red={}, green={}, blue={}",
-        //         color.red,
-        //         color.green,
-        //         color.blue,
-        //     );
-        // }
-    }
-
-    // for [x, y, z] in pos.iter_mut() {
-
-    // }
-
-    println!("points added: {}", p_i);
-
-    //add_quad(1.0, 2.0, 0.0);
+    transform(&mut modified_points, &bounds);
 
     let mesh = Mesh::new(
         bevy::render::mesh::PrimitiveTopology::PointList,
         RenderAssetUsages::default(),
     )
-    // Add 4 vertices, each with its own position attribute (coordinate in
-    // 3D space), for each of the corners of the parallelogram.
-    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, pos);
-    // Assign a UV coordinate to each vertex.
+    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, modified_points);
 
-    // .with_inserted_attribute(
-    //     Mesh::ATTRIBUTE_UV_0,
-    //     uv
-    // )
-    // // Assign normals (everything points outwards)
-    // .with_inserted_attribute(
-    //     Mesh::ATTRIBUTE_NORMAL,
-    //     norm,
-    // )
-
-    // // After defining all the vertices and their attributes, build each triangle using the
-    // // indices of the vertices that make it up in a counter-clockwise order.
-    // .with_inserted_indices(bevy::render::mesh::Indices::U32(index));
+    let lines = Mesh::new(
+        bevy::render::mesh::PrimitiveTopology::LineList,
+        RenderAssetUsages::default(),
+    )
+    //.with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]])
+    //.with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 1.0], [0.5, 0.0], [1.0, 0.0], [0.5, 1.0]])
+    .with_inserted_indices(bevy::render::mesh::Indices::U32(vec![0, 1]))
+    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vec![[0.0, 0.0, 1000.0]]);
 
     let mesh = meshes.add(mesh);
+    let lines = meshes.add(lines);
 
     commands.spawn((
         PbrBundle {
             mesh: mesh,
-            //material: debug_material.clone(),
-            //transform: Transform::from_xyz(0.0 + bounds.min.x as f32, 0.0 + bounds.min.y as f32, 0.0 + bounds.min.z as f32)
-            //transform: Transform::from_xyz(-(  bounds.max.x - bounds.min.x ) as f32, 0.0, 0.0)
             transform: Transform::from_xyz(0.0, 0.0, 0.0)
-                // .with_rotation(Quat::ro),
-                .with_rotation(Quat::from_rotation_x(45.0)),
+              .with_rotation(Quat::from_rotation_x(45.0)),
             ..default()
         },
         Shape,
     ));
 
-    // let mesh: Handle<PointCloudAsset> = asset_server.load("/home/hey/Downloads/2743_1234.las");
-
-    // commands
-    //     .spawn(PotreePointCloud {
-    //         mesh,
-    //         point_size: 0.007,
-    //     })
-    //     .insert(SpatialBundle::default());
-
-    // let mut reader = las::Reader::from_path("/home/hey/Downloads/2743_1234.las").unwrap();
-    // let point = las::Read::read(&mut reader).unwrap().unwrap();
-    // for wrapped_point in las::Read::points(&mut reader) {
-    //     let point = wrapped_point.unwrap();
-
-    //     commands.spawn((
-    //         PbrBundle {
-    //             mesh: cube1.clone(),
-    //             material: debug_material.clone(),
-    //             transform: Transform::from_xyz(
-    //                 point.x as f32,
-    //                 point.y as f32,
-    //                 point.z as f32,
-    //             ),
-
-    //            // .with_rotation(Quat::ro),
-    //            // .with_rotation(Quat::from_rotation_x(-PI / 4.)),
-    //             ..default()
-    //         },
-    //         Shape,
-    //     ));
-
-    //     //println!("Point coordinates: ({}, {}, {})", point.x, point.y, point.z);
-    //     // if let Some(color) = point.color {
-    //     //     println!("Point color: red={}, green={}, blue={}",
-    //     //         color.red,
-    //     //         color.green,
-    //     //         color.blue,
-    //     //     );
-    //     // }
-    // }
-
-    // for (i, shape) in extrusions.into_iter().enumerate() {
-    //     commands.spawn((
-    //         PbrBundle {
-    //             mesh: shape,
-    //             material: debug_material.clone(),
-    //             transform: Transform::from_xyz(
-    //                 -EXTRUSION_X_EXTENT / 2.
-    //                     + i as f32 / (num_extrusions - 1) as f32 * EXTRUSION_X_EXTENT,
-    //                 2.0,
-    //                 -Z_EXTENT / 2.,
-    //             ),
-
-    //            // .with_rotation(Quat::ro),
-    //            // .with_rotation(Quat::from_rotation_x(-PI / 4.)),
-    //             ..default()
-    //         },
-    //         Shape,
-    //     ));
-    // }
+    commands.spawn((
+        MaterialMeshBundle {
+            mesh: lines,
+            material: debug_material,
+            //material: debug_material,
+            transform: Transform::from_xyz(0.0, 0.0, 0.0),
+             // .with_rotation(Quat::from_rotation_x(45.0)),
+            ..default()
+        },
+        Shape,
+    ));
 
     commands.spawn(PointLightBundle {
         point_light: PointLight {
@@ -335,20 +106,12 @@ fn setup(
         ..default()
     });
 
-    // ground plane
-    // commands.spawn(PbrBundle {
-    //     mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0).subdivisions(10)),
-    //     material: materials.add(Color::from(SILVER)),
-    //     ..default()
-    // });
-
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(0.0, 7., 14.0)
                 .looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
             ..default()
         },
-        //bevy_flycam::FlyCam,
         PanOrbitCamera::default(),
     ));
 
@@ -357,63 +120,144 @@ fn setup(
         color: Color::WHITE,
         ..Default::default()
     };
-    //let text_alignment = TextAlignment::Center;
 
-    commands.spawn(TextBundle::from_sections([
-        TextSection::new("hello", text_style)
-    ]));
-
-    // commands.spawn(
-    //     TextBundle::from_section("Press space to toggle wireframes", TextStyle::default())
-    //         .with_style(Style {
-    //             position_type: PositionType::Absolute,
-    //             top: Val::Px(12.0),
-    //             left: Val::Px(12.0),
-    //             ..default()
-    //         }),
-    // );
+    commands.spawn(TextBundle::from_sections([TextSection::new(
+        "hello", text_style,
+    )]));
 }
 
-fn rotate(mut query: Query<&mut Transform, With<Shape>>, time: Res<Time>) {
-    for mut transform in &mut query {
-        transform.rotate_y(time.delta_seconds() / 2.);
+fn read_las(path: &str) -> (Vec<[f32; 3]>, las::header::Header) {
+    
+    let mut reader = las::Reader::from_path(path).unwrap();
+    let header = las::Read::header(&reader).clone();
+    println!("{header:#?}");
+
+    
+
+    let cache_path = std::path::Path::new(CACHE_PATH);
+    let points = if cache_path.exists() {
+        println!("reading cached points...");
+        let points = std::fs::read(CACHE_PATH).expect("faild to read cache file, delete it");
+        println!("deserializing cached points...");
+        let points = bincode::deserialize::<Vec<[f32; 3]>>(&points).expect("failed to deserialize cache file, delete it");
+        println!("reading/deserializing completed");
+        points
+    } else {
+        let mut points = Vec::with_capacity((header.number_of_points() / 3) as usize);
+
+        let mut p_i: usize = 0;
+
+        for wrapped_point in las::Read::points(&mut reader) {
+            let point = wrapped_point.unwrap();
+    
+            points.extend([[point.x as f32, point.y as f32, point.z as f32]]);
+    
+            if p_i % 100000 == 0 {
+                println!("reading points: {}", p_i);
+            }
+    
+            p_i += 1;
+        }
+        println!("finished reading points: {}", p_i);
+
+        let points_bytes = bincode::serialize(&points).unwrap();
+        std::fs::write(CACHE_PATH, points_bytes).unwrap();
+        points
+    };
+
+   
+    let result = (points, header);
+
+    result
+}
+
+fn octotree(points: &[[f32; 3]], bounds: &las::Bounds) -> Vec<[f32; 3]> {
+    let mut modified_pos = Vec::with_capacity(points.len());
+    let mut p_i = 0;
+
+    //let m = bounds.min.z;
+    let min_x = bounds.min.x as f32;
+    let min_y = bounds.min.y as f32;
+    let min_z = bounds.min.z as f32;
+
+    let max_x = bounds.max.x as f32;
+    let max_y = bounds.max.y as f32;
+    let max_z = bounds.max.z as f32;
+
+    let len_x = max_x - min_x;
+    let len_y = max_y - min_y;
+    let len_z = max_z - min_z;
+
+    let len_x_middle = len_x / 2.0;
+    let len_y_middle = len_y / 2.0;
+    let len_z_middle = len_z / 2.0;
+
+    for [x, y, z] in points {
+        // if *x > len_x_middle + min_x {
+        //     continue;
+        // }
+
+        
+    //   if
+    //   // p_i % 100 == 0 
+    //      (*x > len_x_middle + min_x
+    //     && *y > len_y_middle + min_y
+    //     && *z > len_z_middle + min_z)
+    //      ||
+
+    //      (*x < len_x_middle + min_x
+    //         && *y > len_y_middle + min_y
+    //         && *z > len_z_middle + min_z)
+        
+    //     {
+    //         modified_pos.extend([[*x, *y, *z]]);
+    //     }
+        modified_pos.extend([[*x, *y, *z]]);
+
+        if p_i % 100000 == 0 {
+            println!("octotree points: {}", p_i);
+        }
+        p_i += 1;
     }
+
+    println!("finished octotree'ing points: {}", p_i);
+
+    modified_pos
 }
 
-/// Creates a colorful test pattern
-fn uv_debug_texture() -> Image {
-    const TEXTURE_SIZE: usize = 8;
+fn transform(points: &mut [[f32; 3]], bounds: &las::Bounds) {
+    let mut p_i = 0;
 
-    let mut palette: [u8; 32] = [
-        255, 102, 159, 255, 255, 159, 102, 255, 236, 255, 102, 255, 121, 255, 102, 255, 102, 255,
-        198, 255, 102, 198, 255, 255, 121, 102, 255, 255, 236, 102, 255, 255,
-    ];
+    for [x, y, z] in points.iter_mut() {
+        *x = (*x - bounds.min.x as f32) - ((bounds.max.x as f32 - bounds.min.x as f32) / 2.0);
+        *y = (*y - bounds.min.y as f32) - ((bounds.max.y as f32 - bounds.min.y as f32) / 2.0);
+        *z -= bounds.min.z as f32;
 
-    let mut texture_data = [0; TEXTURE_SIZE * TEXTURE_SIZE * 4];
-    for y in 0..TEXTURE_SIZE {
-        let offset = TEXTURE_SIZE * y * 4;
-        texture_data[offset..(offset + TEXTURE_SIZE * 4)].copy_from_slice(&palette);
-        palette.rotate_right(4);
+        if p_i % 100000 == 0 {
+            println!("modifying points: {}", p_i);
+        }
+
+        p_i += 1;
     }
 
-    Image::new_fill(
-        Extent3d {
-            width: TEXTURE_SIZE as u32,
-            height: TEXTURE_SIZE as u32,
-            depth_or_array_layers: 1,
-        },
-        TextureDimension::D2,
-        &texture_data,
-        TextureFormat::Rgba8UnormSrgb,
-        RenderAssetUsages::RENDER_WORLD,
-    )
+    println!("finished modifying points: {}", p_i);
 }
 
-fn toggle_wireframe(
-    mut wireframe_config: ResMut<WireframeConfig>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-) {
-    if keyboard.just_pressed(KeyCode::Space) {
-        wireframe_config.global = !wireframe_config.global;
+
+
+impl Material for LineMaterial {
+    fn fragment_shader() -> ShaderRef {
+        "shaders/line_material.wgsl".into()
+    }
+
+    fn specialize(
+        _pipeline: &MaterialPipeline<Self>,
+        descriptor: &mut RenderPipelineDescriptor,
+        _layout: &MeshVertexBufferLayoutRef,
+        _key: MaterialPipelineKey<Self>,
+    ) -> Result<(), SpecializedMeshPipelineError> {
+        // This is the important part to tell bevy to render this material as a line between vertices
+        descriptor.primitive.polygon_mode = PolygonMode::Line;
+        Ok(())
     }
 }
