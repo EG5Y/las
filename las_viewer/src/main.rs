@@ -40,6 +40,9 @@ struct OctreeCube {
 
 #[derive(Debug, Clone)]
 struct OctreeSphere {
+    pub middle: [f32; 3],
+    pub radius: f32,
+    pub data_points: Vec<[f32; 3]>,
     pub cube_points: [[f32; 3]; 8],
     pub sphere_points: [[f32; 3]; 12],
     pub nodes: Option<Box<[OctreeNode; 8]>>,
@@ -58,6 +61,7 @@ impl Octree {
         
         let mut nodes = OctreeCube::into_cluster(root);
         nodes[0].divide();
+        
         nodes[0].node(0).divide_into_spheres();
         nodes[0].node(0).node(0).divide_into_cubes();
         nodes[0].node(1).divide_into_cubes();
@@ -71,6 +75,60 @@ impl Octree {
                 }
             ),
         }
+    }
+
+    pub fn import(&mut self, data: &[[f32; 3]]) {
+        self.root.import(data);
+        // let mut queue = VecDeque::<&mut OctreeNode>::new();
+
+        // queue.push_back(&mut self.root);
+
+        // loop {
+        //     let Some(node) = queue.pop_front() else {
+        //         break;
+        //     };
+
+        //     let last_node = false;
+            
+        //     {
+        //         if let Some(nodes) = node.nodes_mut() {
+        //             for node in nodes.iter_mut() {
+        //                 queue.push_back(node);
+        //             }
+        //         } else {
+        //         }
+        //     }
+
+        //     node.divide();
+
+        //     // {
+        //     //     if last_node {
+        //     //         match node {
+        //     //             OctreeNode::Cube(cube) => {
+    
+        //     //             }
+        //     //             OctreeNode::Sphere(sphere) => {
+        //     //                 for data_point in data {
+        //     //                     let is_inside = sphere.is_inside(data_point);
+        //     //                     if is_inside {
+        //     //                         sphere.data_points.push(*data_point);
+        //     //                     }
+        //     //                 }
+        //     //             }
+        //     //         }
+        //     //     }
+        //     // }
+
+           
+        // }
+
+        
+    }
+
+    pub fn export(&self) -> Vec<[f32; 3]> {
+        let mut output = Vec::new();
+        self.root.export(&mut output);
+        output
     }
 }
 
@@ -122,7 +180,18 @@ impl OctreeNode {
         }
     }
 
-    pub fn nodes(&self) -> Option<&std::boxed::Box<[OctreeNode; 8]>> {
+    pub fn nodes_mut(&mut self) -> Option<&mut std::boxed::Box<[OctreeNode; 8]>> {
+        match self {
+            OctreeNode::Cube(cube) => {
+                cube.nodes.as_mut()
+            }
+            OctreeNode::Sphere(sphere) => {
+                sphere.nodes.as_mut()
+            }
+        }
+    }
+
+    pub fn nodes_ref(&self) -> Option<&std::boxed::Box<[OctreeNode; 8]>> {
         match self {
             OctreeNode::Cube(cube) => {
                 cube.nodes.as_ref()
@@ -140,6 +209,73 @@ impl OctreeNode {
             }
             OctreeNode::Sphere(sphere) => {
                 sphere.nodes = Some(Box::new(nodes));
+            }
+        }
+    }
+
+    pub fn add_data_point(&mut self, data_point: [f32; 3]) {
+        match self {
+            OctreeNode::Cube(cube) => {
+                //cube.nodes = Some(Box::new(nodes));
+            }
+            OctreeNode::Sphere(sphere) => {
+                sphere.data_points.push(data_point);
+            }
+        }
+    }
+
+    pub fn is_inside(&self, point: &[f32; 3]) -> bool {
+        match self {
+            OctreeNode::Cube(cube) => {
+                false
+            }
+            OctreeNode::Sphere(sphere) => {
+                sphere.is_inside(point)
+                //false
+            }
+        }
+    }
+
+    pub fn import(&mut self, data_points: &[[f32; 3]]) {
+        let nodes = self.nodes_mut();
+        if let Some(nodes) = nodes {
+            for node in nodes.iter_mut() {
+                node.import(data_points);
+            }
+        } else {
+            for data_point in data_points {
+                if self.is_inside(data_point) {
+                    self.add_data_point(*data_point);
+                }
+            }
+        }
+
+        // match self {
+        //     OctreeNode::Cube(cube) => {
+        //         false
+        //     }
+        //     OctreeNode::Sphere(sphere) => {
+        //         sphere.imp
+        //     }
+        // }
+    }
+
+    pub fn export(&self, output: &mut Vec<[f32; 3]>) {
+        match self {
+            OctreeNode::Cube(cube) => {
+                if let Some(nodes) = cube.nodes.as_ref() {
+                    for node in nodes.iter() {
+                        node.export(output);
+                    }
+                }
+            }
+            OctreeNode::Sphere(sphere) => {
+                output.extend(sphere.data_points.clone());
+                if let Some(nodes) = sphere.nodes.as_ref() {
+                    for node in nodes.iter() {
+                        node.export(output);
+                    }
+                }
             }
         }
     }
@@ -169,16 +305,31 @@ impl OctreeSphere {
         let [middle7_x, middle7_y, middle7_z] = cube_middle(&points[7]);
 
         [
-            OctreeNode::Sphere(OctreeSphere { cube_points: points[0], sphere_points: gen_sphere(middle0_x, middle0_y, middle0_z, size), nodes: None }),
-            OctreeNode::Sphere(OctreeSphere { cube_points: points[1], sphere_points: gen_sphere(middle1_x, middle1_y, middle1_z, size), nodes: None }),
-            OctreeNode::Sphere(OctreeSphere { cube_points: points[2], sphere_points: gen_sphere(middle2_x, middle2_y, middle2_z, size), nodes: None }),
-            OctreeNode::Sphere(OctreeSphere { cube_points: points[3], sphere_points: gen_sphere(middle3_x, middle3_y, middle3_z, size), nodes: None }),
+            OctreeNode::Sphere(OctreeSphere { cube_points: points[0], middle: [middle0_x, middle0_y, middle0_z], radius: size, sphere_points: gen_sphere(middle0_x, middle0_y, middle0_z, size), nodes: None, data_points: Vec::new() }),
+            OctreeNode::Sphere(OctreeSphere { cube_points: points[1], middle: [middle1_x, middle1_y, middle1_z], radius: size, sphere_points: gen_sphere(middle1_x, middle1_y, middle1_z, size), nodes: None, data_points: Vec::new() }),
+            OctreeNode::Sphere(OctreeSphere { cube_points: points[2], middle: [middle2_x, middle2_y, middle2_z], radius: size, sphere_points: gen_sphere(middle2_x, middle2_y, middle2_z, size), nodes: None, data_points: Vec::new() }),
+            OctreeNode::Sphere(OctreeSphere { cube_points: points[3], middle: [middle3_x, middle3_y, middle3_z], radius: size, sphere_points: gen_sphere(middle3_x, middle3_y, middle3_z, size), nodes: None, data_points: Vec::new() }),
 
-            OctreeNode::Sphere(OctreeSphere { cube_points: points[4], sphere_points: gen_sphere(middle4_x, middle4_y, middle4_z, size), nodes: None }),
-            OctreeNode::Sphere(OctreeSphere { cube_points: points[5], sphere_points: gen_sphere(middle5_x, middle5_y, middle5_z, size), nodes: None }),
-            OctreeNode::Sphere(OctreeSphere { cube_points: points[6], sphere_points: gen_sphere(middle6_x, middle6_y, middle6_z, size), nodes: None }),
-            OctreeNode::Sphere(OctreeSphere { cube_points: points[7], sphere_points: gen_sphere(middle7_x, middle7_y, middle7_z, size), nodes: None }),
+            OctreeNode::Sphere(OctreeSphere { cube_points: points[4], middle: [middle4_x, middle4_y, middle4_z], radius: size, sphere_points: gen_sphere(middle4_x, middle4_y, middle4_z, size), nodes: None, data_points: Vec::new() }),
+            OctreeNode::Sphere(OctreeSphere { cube_points: points[5], middle: [middle5_x, middle5_y, middle5_z], radius: size, sphere_points: gen_sphere(middle5_x, middle5_y, middle5_z, size), nodes: None, data_points: Vec::new() }),
+            OctreeNode::Sphere(OctreeSphere { cube_points: points[6], middle: [middle6_x, middle6_y, middle6_z], radius: size, sphere_points: gen_sphere(middle6_x, middle6_y, middle6_z, size), nodes: None, data_points: Vec::new() }),
+            OctreeNode::Sphere(OctreeSphere { cube_points: points[7], middle: [middle7_x, middle7_y, middle7_z], radius: size, sphere_points: gen_sphere(middle7_x, middle7_y, middle7_z, size), nodes: None, data_points: Vec::new() }),
         ]
+    }
+
+    pub fn is_inside(&self, point: &[f32; 3]) -> bool {
+        // let data_point = nalgebra::Point3::new(point[0], point[1], point[2]);
+        // let sphere_point = nalgebra::Point3::new(self.middle[0], self.middle[1], self.middle[2]);
+        // let d = nalgebra::distance(&sphere_point, &data_point);
+        // d <= self.radius
+        point[0] > self.middle[0] - self.radius && 
+        point[0] < self.middle[0] + self.radius &&
+
+        point[1] > self.middle[1] - self.radius && 
+        point[1] < self.middle[1] + self.radius &&
+
+        point[2] > self.middle[2] - self.radius && 
+        point[2] < self.middle[2] + self.radius
     }
 }
 
@@ -308,19 +459,8 @@ fn setup(
         color: LinearRgba::GREEN,
     });
 
-    let (points, header) = read_las("/home/hey/Downloads/2743_1234.las");
+    let (mut points, header) = read_las("/home/hey/Downloads/2743_1234.las");
     let bounds = header.bounds();
-
-    let mut modified_points = octotree(&points, &bounds);
-    drop(points);
-
-    transform_move(&mut modified_points, &bounds);
-
-    let mesh: Mesh = Mesh::new(
-        bevy::render::mesh::PrimitiveTopology::PointList,
-        RenderAssetUsages::default(),
-    )
-    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, modified_points);
 
     let size = [
         bounds.max.x - bounds.min.x,
@@ -331,13 +471,38 @@ fn setup(
     .max_by(|a, b| a.partial_cmp(b).unwrap())
     .unwrap() as f32;
     println!("octree size: {}", size);
+
+    let mut tree = Octree::new(size);
+    println!("TREE {:#?}", tree);
+    let lines = gen_debug_lines(&tree);
+
+    println!("importing...");
+    
+    
+    transform_move(&mut points, &bounds);
+    tree.import(&points);
+
+    println!("exporting...");
+    let modified_points = tree.export();
+
+    //let mut modified_points = octotree(&points, &bounds);
+    drop(points);
+
+    
+
+    let mesh: Mesh = Mesh::new(
+        bevy::render::mesh::PrimitiveTopology::PointList,
+        RenderAssetUsages::default(),
+    )
+    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, modified_points);
+
+    
+    
     //let size = [bounds.max.x, bounds.max.y , bounds.max.z].into_iter().max().unwrap() as f32;
 
     //max!
 
-    let tree = Octree::new(size);
-    println!("TREE {:#?}", tree);
-    let lines = gen_debug_lines(&tree);
+    
     //let sphere = gen_sphere(-200.0, 350.0, 100.0, 20.0);
     // /println!("SPHERE {:#?}", sphere);
     let mesh = meshes.add(mesh);
@@ -645,7 +810,7 @@ fn gen_debug_lines(tree: &Octree) -> Mesh {
 
        
 
-        if let Some(nodes) = node.nodes() {
+        if let Some(nodes) = node.nodes_ref() {
             for node in nodes.iter() {
                 queue.push_back(node);
             }
