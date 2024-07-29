@@ -60,12 +60,18 @@ impl Octree {
 
         
         let mut nodes = OctreeCube::into_cluster(root);
-        nodes[0].divide();
+        for node in nodes.iter_mut() {
+            node.divide_into_spheres();
+            for node in node.nodes_mut().unwrap().iter_mut() {
+                node.divide_into_spheres();
+            }
+        }
+        // nodes[0].divide();
         
-        nodes[0].node(0).divide_into_spheres();
-        nodes[0].node(0).node(0).divide_into_cubes();
-        nodes[0].node(1).divide_into_cubes();
-        nodes[0].node(1).node(0).divide_into_spheres();
+        // nodes[0].node(0).divide_into_spheres();
+        // nodes[0].node(0).node(0).divide_into_cubes();
+        // nodes[0].node(1).divide_into_cubes();
+        // nodes[0].node(1).node(0).divide_into_spheres();
 
         Self {
             root: OctreeNode::Cube(
