@@ -1,9 +1,6 @@
-
-
 [workspace]
 resolver = "2"
 members = [
-  #"bevy_point_cloud", 
-  "las_viewer",
+  "las_viewer", "octree",
 ]
 
